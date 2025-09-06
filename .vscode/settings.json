@@ -1,3 +1,8 @@
 {
-    "cmake.sourceDirectory": "/Users/rokang/Documents/GitHub/a1-sockets-mininet/cpp/src"
-}
+    // Point CMake to YOUR project sources (adjust if your top-level is cpp/)
+    "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+  
+    // Use the VM's cmake
+    "cmake.cmakePath": "/usr/bin/cmake"
+  }
