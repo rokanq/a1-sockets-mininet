@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
 {
     cxxopts::Options options("iPerfer", "A simple network performance measurement tool");
     options.add_options()
-        ("s, server", "Enable server", cxxopts::value<bool>())
-        ("p, port", "Port number to use", cxxopts::value<int>())
+        ("s, server", "Enable server", cxxopts::value<bool>()->default_value("false"))
+        ("p, port", "Port number to use", cxxopts::value<int>()->default_value("0"))
         ("c,client", "Enable client", cxxopts::value<bool>()->default_value("false"))
         ("h,host", "Server hostname (for client mode)", cxxopts::value<std::string>()->default_value(""))
         ("t,time", "Test duration in seconds (for client mode)", cxxopts::value<double>()->default_value("0"));
@@ -31,6 +31,11 @@ int main(int argc, char *argv[])
     auto is_server = result["server"].as<bool>();
     auto is_client = result["client"].as<bool>();
     auto port = result["port"].as<int>();
+
+    if (is_server == is_client){
+        spdlog::error("Must specify one of either server or client, not both");
+        return 1;
+    }
 
     spdlog::debug("About to check port number...");
     if (port < 1024 || port > 0xFFFF) {
@@ -42,7 +47,6 @@ int main(int argc, char *argv[])
         //run some server code
         spdlog::info("iPerfer server started on port {}", port);
         runServer();
-        //TODO: call run server here
     } else{
         auto host = result["host"].as<std::string>();
         spdlog::debug("About to check host value ...");
@@ -59,7 +63,6 @@ int main(int argc, char *argv[])
         }
         spdlog::info("iPerfer client connected");
         runClient();
-        //TODO: call run client here
     }
     
     spdlog::info("Setup complete! Server mode: {}. Listening/sending to port {}", is_server, port);
