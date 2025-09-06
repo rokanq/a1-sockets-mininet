@@ -1,3 +1,4 @@
-# Add your setup code above this line, then uncomment the line below
+cmake_minimum_required(VERSION 3.15)
 
-# target_link_libraries(iPerfer spdlog::spdlog cxxopts::cxxopts)
+add_executable(iPerfer iPerfer.cpp)
+target_link_libraries(iPerfer spdlog::spdlog cxxopts::cxxopts)
