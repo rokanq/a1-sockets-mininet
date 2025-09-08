@@ -33,12 +33,14 @@ ssize_t receiveData(int fd, void * buffer, size_t len){
     return received;
 }
 
-ssize_t sendData(int fd, const char * message, const ssize_t& size) {
+ssize_t sendData(int fd, const void * message, const ssize_t& size) {
+    const uint8_t* buffer = static_cast<const uint8_t*>(message);
+
     ssize_t total_sent = 0;
 
 	while (total_sent < size) {
 
-		ssize_t sent = send(fd, message + total_sent, size - total_sent, MSG_NOSIGNAL);
+		ssize_t sent = send(fd, buffer + total_sent, size - total_sent, MSG_NOSIGNAL);
 
 		if (sent < 0) {
 			return -1;
@@ -52,6 +54,68 @@ ssize_t sendData(int fd, const char * message, const ssize_t& size) {
 	}
     return total_sent;
 }
+
+struct TimeMeasure { 
+    uint64_t bytes = 0; 
+    double secs = 0.0; 
+};
+
+TimeMeasure getTimeClient(int sock, double secs){
+    //send the 80kb data shit here and measure the times
+    const char A = 'A';
+    static const size_t data = 80 * 1024; //80 KB size
+    static std::vector<uint8_t> data_buffer(data, '\0');
+    char ack = 0;
+
+    uint64_t total = 0;
+    auto t1 = clk::now();
+    while (true){
+
+        double elapsed = std::chrono::duration<double>(clk::now() - t1).count();
+        if (elapsed >= secs){
+            break;
+        }
+
+        if (sendData(sock, data_buffer.data(), data_buffer.size()) != (ssize_t)data_buffer.size()){
+            spdlog::error("getTimeClient, data is not correctly sized");
+        }
+        total += data_buffer.size();
+
+        if (receiveData(sock, &ack, 1) != 1 || ack != A){
+            spdlog::error("getTimeClient failed");
+        }
+
+    }
+    return {total, std::chrono::duration<double>(clk::now() - t1).count()};
+
+}
+
+TimeMeasure getTimeServer(int sock){
+    const char A = 'A';
+    static const size_t data = 80 * 1024; //80 KB size
+    static std::vector<uint8_t> data_buffer(data);
+    uint64_t total = 0;
+
+    auto t1 = clk::now();
+    while (true){
+        ssize_t received = receiveData(sock, data_buffer.data(), data_buffer.size());
+        if (received == 0){ //client is closed
+            break;
+        }
+
+        if (received == (ssize_t)data){
+            if (sendData(sock, &A, 1) != 1){
+                spdlog::error("getTimeServer failure");
+            } else{
+                break; //client stopped mid-chunk??? actually don't think it's possible for this to happen
+                // client will send entire chunk
+            }
+        }
+    }
+    auto t2 = clk::now();
+    return {total, std::chrono::duration<double>(t2 - t1).count()};
+}
+
 
 ssize_t getRTTClient(int sock){
     const char M = 'M';
@@ -68,6 +132,7 @@ ssize_t getRTTClient(int sock){
         }
         auto t2 = clk::now();
         int rtt = (int)std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+        spdlog::info("sample is being taken");
         samples.push_back(rtt);
     }
 
@@ -97,6 +162,7 @@ ssize_t getRTTServer(int sock){
 
 
     for (int i = 1; i < 8; i++){
+        spdlog::info("sample is being taken");
         auto t1 = clk::now();
         if (receiveData(sock, &hold, 1) != 1 || hold != 'M'){
             spdlog::error("server: receiving data failed");
@@ -163,8 +229,9 @@ int runServer(int port){
         if (connectionfd < 0){
             continue;
         }
-        spdlog::info("Server Data {}" , getRTTServer(connectionfd));
-
+        spdlog::info("Server RTT {}" , getRTTServer(connectionfd));
+        TimeMeasure hold = getTimeServer(connectionfd);
+        spdlog::info("Server Big Data {}", hold.bytes);
         close(connectionfd);
         break;
     }
@@ -174,7 +241,7 @@ int runServer(int port){
     return 0;
 }
 
-int runClient(const char * hostName, int port){
+int runClient(const char * hostName, int port, double time){
     spdlog::info("We got here too gang");
 
     // Make a socket
@@ -203,8 +270,10 @@ int runClient(const char * hostName, int port){
     //Client should send eight 1-byte packets to server to estimate RTT, waiting for ACK between each one
     // After RTT estimation, client should send data for duration of "time" argument
 
-    spdlog::info("RTTCLIENT DATA: {}", getRTTClient(sockfd));
-    
+    spdlog::info("RTTCLIENT RTT: {}", getRTTClient(sockfd));
+    TimeMeasure hold = getTimeClient(sockfd, time);
+    spdlog::info("RTTCLIENT client data: {}", hold.bytes);
+
     shutdown(sockfd, SHUT_RDWR);
     close(sockfd);
 
@@ -257,8 +326,7 @@ int main(int argc, char *argv[])
             return 1;
         }
         spdlog::info("iPerfer client connected");
-        runClient(host.c_str(), port);
+        runClient(host.c_str(), port, time);
     }
     
-    spdlog::info("Setup complete! Server mode: {}. Listening/sending to port {}", is_server, port);
 }
