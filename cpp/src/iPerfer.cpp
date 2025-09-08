@@ -2,6 +2,7 @@
 #include <cxxopts.hpp>
 
 #include <string.h>
+#include <vector>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -9,12 +10,34 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <netdb.h>
 
-#define PORT 8080
+#include <chrono>
+using clk = std::chrono::high_resolution_clock;
 
-auto sendData(int fd, const char * message, const ssize_t& size) -> void{
+ssize_t receiveData(int fd, void * buffer, size_t len){
+    uint8_t* p = static_cast<uint8_t*>(buffer);
+    ssize_t received = 0;
+    while (received < len){
+        ssize_t n = recv(fd, p + received, len - received, 0);
+
+        if (n == 0){
+            return received;
+        }
+        if (n < 0){
+            return -1;
+        }
+        received += n;
+    }
+
+    return received;
+}
+
+ssize_t sendData(int fd, const char * message, const ssize_t& size) {
     ssize_t total_sent = 0;
+
 	while (total_sent < size) {
+
 		ssize_t sent = send(fd, message + total_sent, size - total_sent, MSG_NOSIGNAL);
 
 		if (sent < 0) {
@@ -27,15 +50,76 @@ auto sendData(int fd, const char * message, const ssize_t& size) -> void{
 			break;
 		}
 	}
+    return total_sent;
 }
 
-int getRTTClient(int sock){
+ssize_t getRTTClient(int sock){
     const char M = 'M';
-
+    char ack = 0;
+    std::vector<int> samples;
+    samples.reserve(8);
     for (int i = 0; i < 8; i++){
-
+        auto t1 = clk::now();
+        if (sendData(sock, &M, 1) != 1){
+            spdlog::error("client: sending message failed");
+        }
+        if (receiveData(sock, &ack, 1) != 1 || ack != 'A'){
+            spdlog::error("client: receiving ack failed");
+        }
+        auto t2 = clk::now();
+        int rtt = (int)std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+        samples.push_back(rtt);
     }
+
+    int numSamples = samples.size();
+    int sum = 0;
+    for (int i = numSamples - 4; i < numSamples; i++){
+        sum += samples[i];
+    }
+
+    return sum/4;
 }
+
+ssize_t getRTTServer(int sock){
+    char hold = 0;
+    const char A = 'A';
+    const char ack = '\0';
+    std::vector<int> samples;
+    samples.reserve(7);
+
+    if (receiveData(sock, &hold, 1) != 1 || hold != 'M'){
+        spdlog::error("server: receiving data failed");
+    }
+    auto tAck = clk::now();
+    if (sendData(sock, &A, 1) != 1){
+        spdlog::error("server: sending data failed");
+    }
+
+
+    for (int i = 1; i < 8; i++){
+        auto t1 = clk::now();
+        if (receiveData(sock, &hold, 1) != 1 || hold != 'M'){
+            spdlog::error("server: receiving data failed");
+        }
+        auto tRcv = clk::now();
+        int rtt = (int)std::chrono::duration_cast<std::chrono::milliseconds>(tRcv - tAck).count();
+        samples.push_back(rtt);
+
+        tAck = clk::now();
+        if (sendData(sock, &A, 1) != 1){
+            spdlog::error("server: sending message failed");
+        }
+    }
+
+    int numSamples = samples.size();
+    int sum = 0;
+    for (int i = numSamples - 4; i < numSamples; i++){
+        sum += samples[i];
+    }
+
+    return sum/4;
+}
+
 
 int runServer(int port){
     spdlog::info("We got here");
@@ -43,8 +127,8 @@ int runServer(int port){
     // Make a socket
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd == -1)  {
-        perror("error making socket");
-        exit(1);
+        perror("error making socket"); //TODO: I don't know if i should be doing perror
+        exit(1); //TODO: I don't know if i should be calling exit
     }
 
     // Option for allowing you to reuse socket
@@ -58,7 +142,7 @@ int runServer(int port){
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(PORT);
+    addr.sin_port = htons(port);
     if (bind(sockfd, (sockaddr*)&addr, (socklen_t) sizeof(addr)) == -1) {
         perror("error binding socket");
         exit(1);
@@ -76,23 +160,13 @@ int runServer(int port){
         struct sockaddr_in connection;
         socklen_t size = sizeof(connection);
         int connectionfd = accept(sockfd, (struct sockaddr*)&connection, &size);
-
-        // Print what IP address connection is from
-        char s[INET6_ADDRSTRLEN];
-        printf("connetion from %s\n", inet_ntoa(connection.sin_addr));
-
-        // Receive message
-        char buf[1024];
-        int ret {};
-        if ((ret = recv(connectionfd, buf, sizeof(buf), 0)) == -1) {
-            perror("recv");
-            close(connectionfd);
+        if (connectionfd < 0){
             continue;
         }
-        buf[ret] = '\0';
+        spdlog::info("Server Data {}" , getRTTServer(connectionfd));
 
-        printf("message: %s\n", buf);
         close(connectionfd);
+        break;
     }
 
     close(sockfd);
@@ -100,7 +174,7 @@ int runServer(int port){
     return 0;
 }
 
-int runClient(){
+int runClient(const char * hostName, int port){
     spdlog::info("We got here too gang");
 
     // Make a socket
@@ -112,13 +186,13 @@ int runClient(){
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    struct hostent *host = gethostbyname("127.0.0.1");
+    struct hostent *host = gethostbyname(hostName);
     if (host == NULL) {
         perror("error gethostbyname");
         exit(1);
     }
     memcpy(&addr.sin_addr, host->h_addr, host->h_length);
-    addr.sin_port = htons(8080);  // server port
+    addr.sin_port = htons(port);  // server port
 
     // Connect to the server
     if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
@@ -129,15 +203,10 @@ int runClient(){
     //Client should send eight 1-byte packets to server to estimate RTT, waiting for ACK between each one
     // After RTT estimation, client should send data for duration of "time" argument
 
-    // Send a message
-    char message[] = "Hi server!";
-    if (send(sockfd, message, sizeof(message), 0) == -1) {
-        perror("send");
-        exit(1);
-    }
-
-    close(sockfd);
+    spdlog::info("RTTCLIENT DATA: {}", getRTTClient(sockfd));
+    
     shutdown(sockfd, SHUT_RDWR);
+    close(sockfd);
 
     return 0;
 }
@@ -188,7 +257,7 @@ int main(int argc, char *argv[])
             return 1;
         }
         spdlog::info("iPerfer client connected");
-        runClient();
+        runClient(host.c_str(), port);
     }
     
     spdlog::info("Setup complete! Server mode: {}. Listening/sending to port {}", is_server, port);
