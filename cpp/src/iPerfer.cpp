@@ -13,7 +13,7 @@
 #include <netdb.h>
 
 #include <chrono>
-using clk = std::chrono::high_resolution_clock;
+using clk = std::chrono::high_resolution_clock; //TODO: do we need to make sure everything is in microseconds?
 
 ssize_t receiveData(int fd, void * buffer, size_t len){
     uint8_t* p = static_cast<uint8_t*>(buffer);
@@ -228,7 +228,13 @@ int runServer(int port){
         }
         auto rtt = getRTTServer(connectionfd);
         TimeMeasure hold = getTimeServer(connectionfd);
-        spdlog::info("Sent={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(hold.secs * 1e6)), rtt);
+
+        constexpr size_t CHUNK = 80 * 1024;
+        int chunks = static_cast<int>(hold.bytes / CHUNK);
+        double rtt_s = static_cast<double>(rtt) / 1000.0;
+        double secs_eff = hold.secs - chunks * rtt_s;
+
+        spdlog::info("Received={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(secs_eff * 1e6)), rtt);
         close(connectionfd);
         break;
     }
