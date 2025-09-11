@@ -229,12 +229,7 @@ int runServer(int port){
         auto rtt = getRTTServer(connectionfd);
         TimeMeasure hold = getTimeServer(connectionfd);
 
-        constexpr size_t CHUNK = 80 * 1024;
-        int chunks = static_cast<int>(hold.bytes / CHUNK);
-        double rtt_s = static_cast<double>(rtt) / 1000.0;
-        double secs_eff = hold.secs - chunks * rtt_s;
-
-        spdlog::info("Received={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(secs_eff * 1e6)), rtt);
+        spdlog::info("Received={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(hold.secs * 1e6)), rtt);
         close(connectionfd);
         break;
     }
@@ -273,7 +268,11 @@ int runClient(const char * hostName, int port, double time){
 
     auto rtt = getRTTClient(sockfd);
     TimeMeasure hold = getTimeClient(sockfd, time);
-    spdlog::info("Sent={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(hold.secs * 1e6)), rtt);
+    size_t CHUNK = 80 * 1024;
+    int chunks = static_cast<int>(hold.bytes / CHUNK);
+    double rttTime = static_cast<double>(rtt) / 1000.0;
+    double secsReal = hold.secs - chunks * rttTime;
+    spdlog::info("Sent={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(secsReal * 1e6)), rtt);
 
     shutdown(sockfd, SHUT_RDWR);
     close(sockfd);
