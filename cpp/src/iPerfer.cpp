@@ -103,13 +103,15 @@ TimeMeasure getTimeServer(int sock){
             break;
         }
 
+        total += received;
+
         if (received == (ssize_t)data){
             if (sendData(sock, &A, 1) != 1){
                 spdlog::error("getTimeServer failure");
-            } else{
-                break; //client stopped mid-chunk??? actually don't think it's possible for this to happen
-                // client will send entire chunk
-            }
+            } //else{
+            //     break; //client stopped mid-chunk??? actually don't think it's possible for this to happen
+            //     // client will send entire chunk
+            // }
         }
     }
     auto t2 = clk::now();
@@ -132,7 +134,6 @@ ssize_t getRTTClient(int sock){
         }
         auto t2 = clk::now();
         int rtt = (int)std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        spdlog::info("sample is being taken");
         samples.push_back(rtt);
     }
 
@@ -160,9 +161,7 @@ ssize_t getRTTServer(int sock){
         spdlog::error("server: sending data failed");
     }
 
-
     for (int i = 1; i < 8; i++){
-        spdlog::info("sample is being taken");
         auto t1 = clk::now();
         if (receiveData(sock, &hold, 1) != 1 || hold != 'M'){
             spdlog::error("server: receiving data failed");
@@ -187,9 +186,7 @@ ssize_t getRTTServer(int sock){
 }
 
 
-int runServer(int port){
-    spdlog::info("We got here");
-    
+int runServer(int port){    
     // Make a socket
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd == -1)  {
@@ -229,9 +226,9 @@ int runServer(int port){
         if (connectionfd < 0){
             continue;
         }
-        spdlog::info("Server RTT {}" , getRTTServer(connectionfd));
+        auto rtt = getRTTServer(connectionfd);
         TimeMeasure hold = getTimeServer(connectionfd);
-        spdlog::info("Server Big Data {}", hold.bytes);
+        spdlog::info("Sent={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(hold.secs * 1e6)), rtt);
         close(connectionfd);
         break;
     }
@@ -242,8 +239,6 @@ int runServer(int port){
 }
 
 int runClient(const char * hostName, int port, double time){
-    spdlog::info("We got here too gang");
-
     // Make a socket
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd == -1)  {
@@ -270,9 +265,9 @@ int runClient(const char * hostName, int port, double time){
     //Client should send eight 1-byte packets to server to estimate RTT, waiting for ACK between each one
     // After RTT estimation, client should send data for duration of "time" argument
 
-    spdlog::info("RTTCLIENT RTT: {}", getRTTClient(sockfd));
+    auto rtt = getRTTClient(sockfd);
     TimeMeasure hold = getTimeClient(sockfd, time);
-    spdlog::info("RTTCLIENT client data: {}", hold.bytes);
+    spdlog::info("Sent={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(hold.secs * 1e6)), rtt);
 
     shutdown(sockfd, SHUT_RDWR);
     close(sockfd);
@@ -309,7 +304,6 @@ int main(int argc, char *argv[])
 
     if (is_server) {
         //run some server code
-        spdlog::info("iPerfer server started on port {}", port);
         runServer(port);
     } else{
         auto host = result["host"].as<std::string>();
