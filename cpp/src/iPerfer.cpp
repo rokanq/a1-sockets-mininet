@@ -228,8 +228,12 @@ int runServer(int port){
         }
         auto rtt = getRTTServer(connectionfd);
         TimeMeasure hold = getTimeServer(connectionfd);
+        size_t CHUNK = 80 * 1024;
+        int chunks = static_cast<int>(hold.bytes / CHUNK);
+        double rttTime = static_cast<double>(rtt) / 1000.0;
+        double secsReal = hold.secs - chunks * rttTime;
 
-        spdlog::info("Received={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(hold.secs * 1e6)), rtt);
+        spdlog::info("Received={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(secsReal * 1e6)), rtt);
         close(connectionfd);
         break;
     }
