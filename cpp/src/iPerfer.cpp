@@ -226,12 +226,13 @@ int runServer(int port){
         if (connectionfd < 0){
             continue;
         }
+        spdlog::info("Client connected");
         auto rtt = getRTTServer(connectionfd);
         TimeMeasure hold = getTimeServer(connectionfd);
         size_t CHUNK = 80 * 1024;
         int chunks = static_cast<int>(hold.bytes / CHUNK);
         double rttTime = static_cast<double>(rtt) / 1000.0;
-        double secsReal = hold.secs - chunks * rttTime;
+        double secsReal = hold.secs - ((chunks*0.5) * rttTime);
 
         spdlog::info("Received={} KB, Rate={:.3f} Mbps, RTT={} ms", hold.bytes / 1024.0, ((hold.bytes * 8)/(secsReal * 1e6)), rtt);
         close(connectionfd);
@@ -328,7 +329,6 @@ int main(int argc, char *argv[])
             spdlog::error("Error: time argument must be greater than 0");
             return 1;
         }
-        spdlog::info("iPerfer client connected");
         runClient(host.c_str(), port, time);
     }
     
