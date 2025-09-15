@@ -1,5 +1,5 @@
-2)    Predicted throughput: _ Mbps
-      Predicted RTT: _ ms
+2)    Predicted throughput: min (18.8, 38.1, 23.8, 23.7) = 18.8 Mbps
+      Predicted RTT: 81.146 + 21.390 + 10.993 + 10.885 = 124.41 ms
       Actual throughput: _ Mbps
       Actual RTT: _ ms
       Explanation of results: 
