@@ -10,15 +10,23 @@
       Actual throughput: (12.7 Mbps, 6.49 Mbps)
       Actual RTT: (123.055 ms, 123.055 ms)
       Explanation of results: 
+      The throughput is limited by the 18.8 Mbps bottleneck so it's expected that the two throughputs sum up to about that value. 
+      The uneven distribution of throughput might be due to uneven start times but their sum is equal to the bottleneck. 
+      The RTTs remained near the base RTT because of small queuing delay in this system. 
 
 3.2)  Predicted throughput: (12 Mbps, 4.5 Mbps, 1.5 Mbps)
       Predicted RTT: (124 ms, 124 ms, 124 ms)
       Actual throughput: (11.6 Mbps, 4.64 Mbps, 3.46 Mbps)
       Actual RTT: (123.044 ms, 123.558 ms, 125.044 ms)
       Explanation of results: 
+      The throughput once again wasn't distributed evenly but we still see that their sum is roughly equal to the bottleneck throughput.
+      And the RTTs once again remained about the same due to small queuing delay and measurement overlap. 
 
 4)    Predicted throughput: (h1-h10: 12 Mbps, h3-h8: 12 Mbps)
       Predicted RTT: (h1-h10: 124 ms, h3-h8: 32 ms) 
       Actual throughput: (h1-h10: 14.3 Mbps, h3-h8: 10.0 Mbps)
       Actual RTT: (h1-h10: 122.612 ms, h3-h8: 31.044 ms)
       Explanation of results: 
+      The new bottleneck here for the two data paths is now about 24 and as expected, the sum of the two throughputs is roughly 24 Mbps.
+      The RTTs for h1-h10 and h3-h8 are much different now because of the difference in path lengths. The disparity is expected and 
+      reflects the timing of their base paths. 
