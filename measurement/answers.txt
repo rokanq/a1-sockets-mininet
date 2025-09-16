@@ -1,23 +1,24 @@
 2)    Predicted throughput: min (18.8, 38.1, 23.8, 23.7) = 18.8 Mbps
       Predicted RTT: 81.146 + 21.390 + 10.993 + 10.885 = 124.41 ms
-      Actual throughput: _ Mbps
-      Actual RTT: _ ms
+      Actual throughput: 18.7 Mbps
+      Actual RTT: 123.927 ms
+      Explanation of results: As expected, the predicted and actual results are very close. Throughput is limited by the link with the lowest throughput and RTT is expected to be close to the sum of the RTTs of the individual link RTTs. The 
+      data may differ more from expected results if this wasn't using Mininet. 
+
+3.1)  Predicted throughput: (9.4 Mbps, 9.4 Mbps)
+      Predicted RTT: (124 ms, 124 ms)
+      Actual throughput: (12.7 Mbps, 6.49 Mbps)
+      Actual RTT: (123.055 ms, 123.055 ms)
       Explanation of results: 
 
-3.1)  Predicted throughput: (_ Mbps, _ Mbps)
-      Predicted RTT: (_ ms, _ ms)
-      Actual throughput: (_ Mbps, _ Mbps)
-      Actual RTT: (_ ms, _ ms)
+3.2)  Predicted throughput: (12 Mbps, 4.5 Mbps, 1.5 Mbps)
+      Predicted RTT: (124 ms, 124 ms, 124 ms)
+      Actual throughput: (11.6 Mbps, 4.64 Mbps, 3.46 Mbps)
+      Actual RTT: (123.044 ms, 123.558 ms, 125.044 ms)
       Explanation of results: 
 
-3.2)  Predicted throughput: (_ Mbps, _ Mbps, _ Mbps)
-      Predicted RTT: (_ ms, _ ms, _ ms)
-      Actual throughput: (_ Mbps, _ Mbps, _ Mbps)
-      Actual RTT: (_ ms, _ ms, _ ms)
-      Explanation of results: 
-
-4)    Predicted throughput: (h1-h10: _ Mbps, h3-h8: _ Mbps)
-      Predicted RTT: (h1-h10: _ ms, h3-h8: _ ms) 
-      Actual throughput: (h1-h10: _ Mbps, h3-h8: _ Mbps)
-      Actual RTT: (h1-h10: _ ms, h3-h8: _ ms)
+4)    Predicted throughput: (h1-h10: 12 Mbps, h3-h8: 12 Mbps)
+      Predicted RTT: (h1-h10: 124 ms, h3-h8: 32 ms) 
+      Actual throughput: (h1-h10: 14.3 Mbps, h3-h8: 10.0 Mbps)
+      Actual RTT: (h1-h10: 122.612 ms, h3-h8: 31.044 ms)
       Explanation of results: 
